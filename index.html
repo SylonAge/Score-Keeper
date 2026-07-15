@@ -115,7 +115,7 @@
 
         /* Renkli Oyuncu Kartı Tasarımı */
         .player-card {
-            border-radius: 16px; display: flex; justify-content: space-between; align-items: center;
+            border-radius: 16px; display: flex; flex-direction: column; justify-content: space-between; align-items: center;
             padding: 8px; position: relative; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); color: #ffffff;
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
@@ -167,22 +167,22 @@
         }
         .pending-cancel:active { background: var(--accent-red); }
 
-        /* Geçmiş & Undo Paneli - SAĞ TARAFTA YER ALACAK */
+        /* Geçmiş & Undo Paneli (Alt Kısımda Yatay) */
         .history-panel {
-            display: flex; flex-direction: column; width: 45px; height: 100%;
-            border-left: 1px solid rgba(255,255,255,0.2); padding-left: 6px; margin-left: 4px; z-index: 2;
+            display: flex; flex-direction: row; align-items: center; justify-content: space-between; width: 100%; height: 28px;
+            border-top: 1px solid rgba(255,255,255,0.2); padding-top: 6px; margin-top: 6px; z-index: 2;
         }
         .btn-undo {
             background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px;
-            font-size: 14px; padding: 4px 0; cursor: pointer; margin-bottom: 6px; transition: transform 0.1s; display: flex; justify-content: center; align-items: center;
+            font-size: 14px; padding: 0 8px; cursor: pointer; margin-left: 6px; transition: transform 0.1s; display: flex; justify-content: center; align-items: center; height: 100%;
         }
         .btn-undo:active { transform: scale(0.9); }
         .history-list {
-            display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700;
-            overflow-y: auto; flex: 1; scrollbar-width: none;
+            display: flex; flex-direction: row; gap: 6px; font-size: 12px; font-weight: 700;
+            overflow-x: auto; overflow-y: hidden; flex: 1; scrollbar-width: none; align-items: center; height: 100%;
         }
         .history-list::-webkit-scrollbar { display: none; }
-        .history-item { text-align: center; background: rgba(0,0,0,0.25); border-radius: 4px; padding: 2px 0; }
+        .history-item { text-align: center; background: rgba(0,0,0,0.25); border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
         .history-item.pos { color: var(--accent-green); }
         .history-item.neg { color: var(--accent-red); }
 
@@ -236,9 +236,9 @@
         .dense-layout .player-card { padding: 6px; }
         .dense-layout .score-val { font-size: 36px; }
         .dense-layout .btn-score { font-size: 14px; }
-        .dense-layout .history-panel { width: 35px; margin-left: 2px; }
-        .dense-layout .btn-undo { font-size: 11px; padding: 3px 0; margin-bottom: 4px; }
-        .dense-layout .history-list { font-size: 10px; }
+        .dense-layout .history-panel { height: 24px; margin-top: 4px; padding-top: 4px; }
+        .dense-layout .btn-undo { font-size: 11px; padding: 0 6px; margin-left: 4px; }
+        .dense-layout .history-list { font-size: 10px; gap: 4px; }
         .dense-layout .pending-box { font-size: 12px; padding: 2px 6px; }
         .dense-layout .player-name-input { font-size: 12px; }
     </style>
@@ -570,18 +570,20 @@
                 posButtons.forEach(v=>{rightBtns+=`<button class="btn-score ${v===1||v===5||v===10?'btn-plus':'btn-custom'}" onclick="queueScore(event, ${player.id}, ${v})">+${v}</button>`});
                 rightBtns+='</div>';
 
-                // GEÇMİŞ PANELİ (En Sağda)
+                // GEÇMİŞ PANELİ (Alt Kısımda)
                 let historyHtml = `
                     <div class="history-panel">
-                        <button class="btn-undo" onclick="undoLast(event, ${player.id})" title="Geri Al">↩️</button>
                         <div class="history-list" id="history-list-${player.id}">
                             ${player.history.slice().reverse().map(h => `<div class="history-item ${h.change > 0 ? 'pos' : 'neg'}">${h.change > 0 ? '+'+h.change : h.change}</div>`).join('')}
                         </div>
+                        <button class="btn-undo" onclick="undoLast(event, ${player.id})" title="Geri Al">↩️</button>
                     </div>
                 `;
 
-                // DİZİLİŞ: Sol Butonlar -> Skor -> Sağ Butonlar -> Geçmiş
-                card.innerHTML = leftBtns + centerHtml + rightBtns + historyHtml;
+                // DİZİLİŞ: Üstte Ana Satır (Sol Butonlar + Merkez + Sağ Butonlar) -> Altta Geçmiş
+                let mainRow = `<div class="player-main" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex: 1; overflow: hidden;">${leftBtns}${centerHtml}${rightBtns}</div>`;
+                
+                card.innerHTML = mainRow + historyHtml;
                 grid.appendChild(card);
                 
                 updatePendingUI(player.id);
