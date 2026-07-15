@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gelişmiş Can & Skor Takipçisi V7</title>
+    <style>
+        :root {
+            --bg-main: #0c0c0e;
+            --bg-card: #16161a;
+            --bg-modal: #1a1a1f;
+            --text-main: #ffffff;
+            --text-muted: #8e8e93;
+            --accent-blue: #007aff;
+            --accent-green: #30d158;
+            --accent-red: #ff453a;
+            --accent-orange: #ff9f0a;
+            --border-color: #2c2c2e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Ekran Geçişleri */
+        .screen { display: none; flex-direction: column; height: 100%; width: 100%; }
+        .screen.active { display: flex; }
+
+        /* Başlangıç Ekranı */
+        #startScreen {
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #0c0c0e 0%, #1c1c22 100%);
+            overflow-y: auto;
+        }
+
+        .start-container {
+            background-color: var(--bg-card); padding: 32px 24px; border-radius: 24px;
+            border: 1px solid var(--border-color); width: 100%; max-width: 400px; display: flex;
+            flex-direction: column; gap: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); margin: auto;
+        }
+        .start-title { font-size: 28px; font-weight: 800; color: var(--text-main); margin-bottom: 4px; text-align: center; }
+        .start-section { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+        .start-section label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+
+        .player-count-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .picker-btn {
+            background-color: var(--bg-main); border: 1px solid var(--border-color);
+            color: var(--text-main); padding: 12px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .picker-btn.active { background-color: var(--accent-blue); border-color: var(--accent-blue); color: white; }
+
+        .form-control {
+            background-color: var(--bg-main); border: 1px solid var(--border-color);
+            color: var(--text-main); padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 600; outline: none; width: 100%; text-align: center;
+        }
+        .form-control:focus { border-color: var(--accent-blue); }
+
+        .btn-primary { background-color: var(--accent-blue); color: white; border: none; padding: 16px; border-radius: 16px; font-size: 16px; font-weight: 700; cursor: pointer; width: 100%; }
+        .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+
+        .btn-continue { background-color: var(--accent-green); color: white; border: none; padding: 16px; border-radius: 16px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%;}
+        .btn-continue:active { transform: scale(0.98); opacity: 0.9; }
+        .divider { height: 1px; background-color: var(--border-color); margin: 4px 0; }
+
+        /* Kayıtlı Oyunlar Listesi Inline */
+        .saves-list { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .save-item { background-color: var(--bg-main); border: 1px solid var(--border-color); padding: 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .save-info { display: flex; flex-direction: column; text-align: left; }
+        .save-name { font-weight: 700; font-size: 15px; }
+        .save-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px;}
+        .save-actions { display: flex; gap: 6px; }
+        .btn-load { background-color: var(--accent-green); color: white; border: none; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-delete { background-color: rgba(255, 69, 58, 0.2); color: var(--accent-red); border: none; padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+        /* Oyun İçi Üst Menü */
+        header { height: 54px; background-color: #121214; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; padding: 0 16px; z-index: 10; }
+        header h1 { font-size: 16px; font-weight: 600; color: var(--text-main); }
+        .header-actions { display: flex; gap: 12px; }
+        .icon-btn { background: none; border: none; color: var(--text-main); font-size: 20px; cursor: pointer; padding: 6px; border-radius: 8px; }
+
+        /* Oyuncu Izgarası (Grid) */
+        .player-grid { display: grid; gap: 8px; padding: 8px; flex: 1; height: calc(100vh - 54px); overflow: hidden; }
+        .players-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+        .players-2 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+        .players-3 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr 1fr; }
+        .players-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .players-5 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+        .players-6 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr; }
+        .players-7 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr 1fr; }
+        .players-8 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 1fr 1fr; }
+
+        /* 2 Kişilik Karşılıklı Ayna Modu */
+        .players-2 .player-card:nth-child(1) { transform: rotate(180deg); }
+
+        /* Renkli Oyuncu Kartı Tasarımı */
+        .player-card {
+            border-radius: 16px; display: flex; justify-content: space-between; align-items: center;
+            padding: 8px; position: relative; overflow: hidden; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); color: #ffffff;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .btn-column { display: flex; flex-direction: column; justify-content: center; gap: 6px; height: 100%; width: 22%; max-width: 80px; z-index: 2; }
+        .btn-score {
+            flex: 1; border: none; border-radius: 10px; font-size: 16px; font-weight: 800; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; background-color: rgba(0, 0, 0, 0.25);
+            color: rgba(255, 255, 255, 0.95); backdrop-filter: blur(4px); box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.1s, background-color 0.1s;
+        }
+        .btn-score:active { transform: scale(0.85); background-color: rgba(0, 0, 0, 0.5); }
+        .btn-minus { border-left: 2px solid rgba(255, 69, 58, 0.6); }
+        .btn-plus { border-right: 2px solid rgba(48, 209, 88, 0.6); }
+        .btn-custom { border-bottom: 2px solid rgba(0, 122, 255, 0.6); }
+
+        /* Orta Bölüm (Skor, İsim) */
+        .score-center {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            flex: 1; height: 100%; z-index: 2; position: relative; padding: 0 4px;
+        }
+        .name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+        .player-name-input { background: none; border: none; color: white; font-size: 15px; font-weight: 700; text-align: center; max-width: 80px; outline: none; border-bottom: 1px dashed rgba(255,255,255,0.4); text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+        
+        .color-picker-btn {
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.4); color: white; border-radius: 50%;
+            width: 22px; height: 22px; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.5); transition: transform 0.2s;
+        }
+        .color-picker-btn:active { transform: rotate(45deg); }
+
+        .score-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .score-val { font-size: 52px; font-weight: 900; color: white; cursor: pointer; text-shadow: 0 4px 12px rgba(0,0,0,0.4); line-height: 1; transition: transform 0.1s; position: relative; }
+        .score-val:active { transform: scale(1.1); }
+
+        /* Bekleyen İşlem Kutusu (Buffer) */
+        .pending-box {
+            position: absolute; top: 100%; margin-top: 4px; background-color: rgba(0, 0, 0, 0.85);
+            border-radius: 12px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 6px;
+            font-size: 14px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.6); z-index: 5;
+            border: 1px solid; animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .pending-box.pos { color: var(--accent-green); border-color: var(--accent-green); }
+        .pending-box.neg { color: var(--accent-red); border-color: var(--accent-red); }
+        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .pending-cancel {
+            background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 50%;
+            width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 9px; cursor: pointer; transition: background 0.1s;
+        }
+        .pending-cancel:active { background: var(--accent-red); }
+
+        /* Geçmiş & Undo Paneli - SAĞ TARAFTA YER ALACAK */
+        .history-panel {
+            display: flex; flex-direction: column; width: 45px; height: 100%;
+            border-left: 1px solid rgba(255,255,255,0.2); padding-left: 6px; margin-left: 4px; z-index: 2;
+        }
+        .btn-undo {
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px;
+            font-size: 14px; padding: 4px 0; cursor: pointer; margin-bottom: 6px; transition: transform 0.1s; display: flex; justify-content: center; align-items: center;
+        }
+        .btn-undo:active { transform: scale(0.9); }
+        .history-list {
+            display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700;
+            overflow-y: auto; flex: 1; scrollbar-width: none;
+        }
+        .history-list::-webkit-scrollbar { display: none; }
+        .history-item { text-align: center; background: rgba(0,0,0,0.25); border-radius: 4px; padding: 2px 0; }
+        .history-item.pos { color: var(--accent-green); }
+        .history-item.neg { color: var(--accent-red); }
+
+        /* Floating Animation */
+        .floating-text { position: absolute; font-size: 28px; font-weight: 900; text-shadow: 0 2px 5px rgba(0,0,0,0.8); pointer-events: none; z-index: 10; animation: floatUpFade 0.8s ease-out forwards; }
+        @keyframes floatUpFade { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
+
+        /* Modallar Genel */
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); justify-content: center; align-items: center; z-index: 100; padding: 16px; }
+        .modal.active { display: flex; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-content { background-color: var(--bg-modal); border: 1px solid var(--border-color); border-radius: 20px; width: 100%; max-width: 360px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 16px; animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal h2 { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+
+        /* Renk Paleti Modalı */
+        .color-palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 10px; }
+        .color-swatch { width: 100%; aspect-ratio: 1; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s, opacity 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.3); position: relative; }
+        .color-swatch:active:not(.disabled) { transform: scale(0.85); }
+        .color-swatch.disabled { opacity: 0.2; cursor: not-allowed; }
+        .color-swatch.disabled::after { content: '✕'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-weight: bold; font-size: 20px; text-shadow: 0 0 4px black; }
+
+        /* Ayarlar */
+        .settings-row { display: flex; flex-direction: column; gap: 6px; }
+        .settings-row label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .custom-btn-setting { display: flex; align-items: center; justify-content: space-between; background-color: var(--bg-card); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .custom-toggle-group { display: flex; align-items: center; gap: 10px; }
+        .switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3a3a3c; transition: .3s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-green); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .input-val { background-color: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-main); width: 60px; padding: 8px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 600; outline: none; }
+
+        /* Manuel Klavye */
+        .manual-display-wrapper { background-color: var(--bg-main); padding: 16px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); }
+        #manualValueDisplay { font-size: 40px; font-weight: 800; color: var(--text-main); letter-spacing: 1px; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .key-btn { background-color: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); padding: 16px 0; border-radius: 12px; font-size: 18px; font-weight: 700; cursor: pointer; transition: transform 0.1s;}
+        .key-btn:active { background-color: var(--border-color); transform: scale(0.9); }
+        .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
+        .action-btn { border: none; padding: 14px 0; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; transition: transform 0.1s; }
+        .action-btn:active { transform: scale(0.95); }
+        .btn-subtract { background-color: var(--accent-red); color: white; }
+        .btn-add { background-color: var(--accent-green); color: white; }
+        .btn-cancel { background: none; border: none; color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; padding: 8px; margin-top: 4px; }
+        .btn-save { background-color: var(--accent-blue); color: white; border: none; padding: 14px 0; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+
+        /* Çok Oyunculu (Dense) Düzen */
+        .dense-layout .player-card { padding: 6px; }
+        .dense-layout .score-val { font-size: 36px; }
+        .dense-layout .btn-score { font-size: 14px; }
+        .dense-layout .history-panel { width: 35px; margin-left: 2px; }
+        .dense-layout .btn-undo { font-size: 11px; padding: 3px 0; margin-bottom: 4px; }
+        .dense-layout .history-list { font-size: 10px; }
+        .dense-layout .pending-box { font-size: 12px; padding: 2px 6px; }
+        .dense-layout .player-name-input { font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <!-- BAŞLANGIÇ EKRANI -->
+    <div id="startScreen" class="screen active">
+        <div class="start-container">
+            <div>
+                <h1 class="start-title">Skor Takipçisi</h1>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">Masaüstü oyunlar için modern can/skor arayüzü</p>
+            </div>
+
+            <!-- Kayıtlı Oyunlar Alanı (Varsayılan Açık) -->
+            <div id="startSavesSection">
+                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 8px; text-align: left;">Kayıtlı Oyunlar</div>
+                <div class="saves-list" id="startSavesListContainer">
+                    <!-- JS ile Dolacak -->
+                </div>
+            </div>
+
+            <button id="btnShowNewGame" class="btn-primary" onclick="toggleNewGameForm(); playHapticClick()" style="margin-top: 10px;">Yeni Oyun Oluştur</button>
+
+            <!-- Yeni Oyun Formu (Butona Basınca Açılır) -->
+            <div id="newGameForm" style="display: none; flex-direction: column; gap: 15px; margin-top: 5px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                <div class="start-section">
+                    <label>Yeni Oyun Adı</label>
+                    <input type="text" id="gameNameInput" class="form-control" placeholder="">
+                </div>
+                
+                <div class="start-section">
+                    <label>Oyuncu Sayısı</label>
+                    <div class="player-count-picker" id="startPlayerPicker">
+                        <button class="picker-btn active" onclick="setStartPlayers(1); playHapticClick()">1</button>
+                        <button class="picker-btn" onclick="setStartPlayers(2); playHapticClick()">2</button>
+                        <button class="picker-btn" onclick="setStartPlayers(3); playHapticClick()">3</button>
+                        <button class="picker-btn" onclick="setStartPlayers(4); playHapticClick()">4</button>
+                        <button class="picker-btn" onclick="setStartPlayers(5); playHapticClick()">5</button>
+                        <button class="picker-btn" onclick="setStartPlayers(6); playHapticClick()">6</button>
+                        <button class="picker-btn" onclick="setStartPlayers(7); playHapticClick()">7</button>
+                        <button class="picker-btn" onclick="setStartPlayers(8); playHapticClick()">8</button>
+                    </div>
+                </div>
+
+                <div class="start-section">
+                    <label>Başlangıç Skoru (Can)</label>
+                    <input type="number" id="initScoreInput" class="form-control" value="50">
+                </div>
+
+                <button class="btn-continue" onclick="startNewGame(); playHapticClick()">Başlat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OYUN EKRANI -->
+    <div id="gameScreen" class="screen">
+        <header>
+            <button class="icon-btn" onclick="goToMenu(); playHapticClick()" title="Ana Menü">🏠</button>
+            <h1 id="appTitle">Skor Takipçisi</h1>
+            <div class="header-actions">
+                <button class="icon-btn" title="Sıfırla" onclick="confirmResetAll(); playHapticClick()">🔄</button>
+                <button class="icon-btn" title="Ayarlar" onclick="openSettingsModal(); playHapticClick()">⚙️</button>
+            </div>
+        </header>
+        <main class="player-grid" id="playerGrid"></main>
+    </div>
+
+    <!-- RENK SEÇİM MODALI -->
+    <div id="colorModal" class="modal">
+        <div class="modal-content">
+            <h2>Renk Seçin</h2>
+            <div class="color-palette" id="colorPalette"></div>
+            <button class="btn-cancel" onclick="closeColorModal(); playHapticClick()">Kapat</button>
+        </div>
+    </div>
+
+    <!-- AYARLAR MODALI -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h2>Oyun Ayarları</h2>
+            <div class="settings-row"><label>Özelleştirilebilir Buton 1</label><div class="custom-btn-setting"><div class="custom-toggle-group"><label class="switch"><input type="checkbox" id="custom1Toggle"><span class="slider"></span></label><span style="font-size: 14px; font-weight: 500;">Aktif</span></div><input type="number" id="custom1ValueInput" class="input-val" value="20"></div></div>
+            <div class="settings-row"><label>Özelleştirilebilir Buton 2</label><div class="custom-btn-setting"><div class="custom-toggle-group"><label class="switch"><input type="checkbox" id="custom2Toggle"><span class="slider"></span></label><span style="font-size: 14px; font-weight: 500;">Aktif</span></div><input type="number" id="custom2ValueInput" class="input-val" value="50"></div></div>
+            <button class="btn-save" onclick="saveSettings(); playHapticClick()">Değişiklikleri Kaydet</button>
+            <button class="btn-cancel" onclick="closeSettingsModal(); playHapticClick()">Kapat</button>
+        </div>
+    </div>
+
+    <!-- MANUEL GİRİŞ MODALI -->
+    <div id="manualModal" class="modal">
+        <div class="modal-content">
+            <h2 id="manualModalTitle">Değer Girin</h2>
+            <div class="manual-display-wrapper"><span id="manualValueDisplay">0</span></div>
+            <div class="keypad">
+                <button class="key-btn" onclick="pressKey('1'); playHapticClick()">1</button>
+                <button class="key-btn" onclick="pressKey('2'); playHapticClick()">2</button>
+                <button class="key-btn" onclick="pressKey('3'); playHapticClick()">3</button>
+                <button class="key-btn" onclick="pressKey('4'); playHapticClick()">4</button>
+                <button class="key-btn" onclick="pressKey('5'); playHapticClick()">5</button>
+                <button class="key-btn" onclick="pressKey('6'); playHapticClick()">6</button>
+                <button class="key-btn" onclick="pressKey('7'); playHapticClick()">7</button>
+                <button class="key-btn" onclick="pressKey('8'); playHapticClick()">8</button>
+                <button class="key-btn" onclick="pressKey('9'); playHapticClick()">9</button>
+                <button class="key-btn" onclick="pressKey('C'); playHapticClick()" style="color:var(--accent-red)">C</button>
+                <button class="key-btn" onclick="pressKey('0'); playHapticClick()">0</button>
+                <button class="key-btn" onclick="pressKey('⌫'); playHapticClick()" style="color:var(--accent-orange)">⌫</button>
+            </div>
+            <div class="modal-actions">
+                <button class="action-btn btn-subtract" onclick="submitManual(false); playHapticClick()">- Çıkar</button>
+                <button class="action-btn btn-add" onclick="submitManual(true); playHapticClick()">+ Ekle</button>
+            </div>
+            <button class="btn-cancel" onclick="closeManualModal(); playHapticClick()">Vazgeç</button>
+        </div>
+    </div>
+
+    <script>
+        const PALETTE = ['#ff3b30', '#007aff', '#ffcc00', '#4cd964', '#ff9500', '#5856d6', '#8e8e93', '#1c1c1e', '#ff2d55', '#5ac8fa', '#a2845e', '#4b0082', '#008080', '#32cd32', '#00ffff', '#ff00ff'];
+        
+        let savesDatabase = {}; 
+        let currentGameName = "";
+        let appState = {
+            playerCount: 1, startingScore: 50,
+            custom1: { active: false, value: 20 },
+            custom2: { active: false, value: 50 },
+            players: []
+        };
+        
+        let runtimeState = {}; 
+
+        let tempStartPlayers = 1;
+        let activeManualPlayerId = null;
+        let activeColorPlayerId = null;
+        let manualInputBuffer = "0";
+        let audioCtx;
+
+        window.addEventListener('DOMContentLoaded', () => { loadDatabase(); initColorPalette(); });
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        function playHapticClick() {
+            if (navigator.vibrate) navigator.vibrate(10);
+            initAudio();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.05);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        }
+        function playScoreSound(isPositive) {
+            if (navigator.vibrate) navigator.vibrate(isPositive ? 15 : [10, 30, 10]);
+            initAudio();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (isPositive) {
+                osc.type = 'square'; osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+            } else {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.1);
+            }
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // --- VERİTABANI VE BAŞLANGIÇ EKRANI ---
+        function loadDatabase() {
+            const db = localStorage.getItem('score_tracker_saves_v7');
+            if (db) {
+                try { savesDatabase = JSON.parse(db); } catch(e) { savesDatabase = {}; }
+            }
+            renderSavesList();
+        }
+
+        function renderSavesList() {
+            const container = document.getElementById('startSavesListContainer');
+            container.innerHTML = '';
+            const saves = Object.keys(savesDatabase);
+            
+            if(saves.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:gray; font-size:13px; padding: 15px 0; background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px dashed var(--border-color);">Kayıtlı oyun bulunamadı.</div>';
+                document.getElementById('newGameForm').style.display = 'flex';
+                document.getElementById('btnShowNewGame').style.display = 'none';
+            } else {
+                saves.forEach(saveName => {
+                    const data = savesDatabase[saveName]; 
+                    const div = document.createElement('div'); div.className = 'save-item';
+                    div.innerHTML = `
+                        <div class="save-info"><span class="save-name">${saveName}</span><span class="save-desc">${data.playerCount} Oyuncu | Başlangıç: ${data.startingScore}</span></div>
+                        <div class="save-actions"><button class="btn-load" onclick="loadGame('${saveName}')">Yükle</button><button class="btn-delete" onclick="deleteSave('${saveName}')">Sil</button></div>
+                    `;
+                    container.appendChild(div);
+                });
+                document.getElementById('newGameForm').style.display = 'none';
+                document.getElementById('btnShowNewGame').style.display = 'block';
+            }
+        }
+
+        function toggleNewGameForm() {
+            const form = document.getElementById('newGameForm');
+            const btn = document.getElementById('btnShowNewGame');
+            form.style.display = 'flex';
+            btn.style.display = 'none';
+        }
+
+        function saveGameToDatabase() {
+            if(!currentGameName) return;
+            savesDatabase[currentGameName] = appState;
+            localStorage.setItem('score_tracker_saves_v7', JSON.stringify(savesDatabase));
+        }
+
+        function setStartPlayers(count) {
+            tempStartPlayers = count;
+            const buttons = document.querySelectorAll('#startPlayerPicker .picker-btn');
+            buttons.forEach((btn, idx) => {
+                if (idx + 1 === tempStartPlayers) btn.classList.add('active'); else btn.classList.remove('active');
+            });
+        }
+        
+        function getDefaultColorForPlayer(playerIndex, totalPlayers) {
+            if (totalPlayers === 1) return PALETTE[7];
+            const order = [0, 1, 2, 3, 4, 5, 6, 7]; return PALETTE[order[playerIndex % order.length]];
+        }
+        
+        function startNewGame() {
+            initAudio();
+            let nameInput = document.getElementById('gameNameInput').value.trim();
+            if(!nameInput) nameInput = `Oyun ${Object.keys(savesDatabase).length + 1}`;
+            if (savesDatabase[nameInput]) { if(!confirm(`"${nameInput}" zaten var. Üzerine yazılsın mı?`)) return; }
+            
+            currentGameName = nameInput;
+            const startScore = parseInt(document.getElementById('initScoreInput').value) || 50;
+            
+            appState.playerCount = tempStartPlayers; appState.startingScore = startScore; appState.players = [];
+            runtimeState = {};
+
+            for (let i = 0; i < tempStartPlayers; i++) {
+                appState.players.push({
+                    id: i + 1, name: `Oyuncu ${i + 1}`, score: startScore,
+                    color: getDefaultColorForPlayer(i, tempStartPlayers), history: []
+                });
+                runtimeState[i + 1] = { pending: 0, timer: null };
+            }
+            saveGameToDatabase(); document.getElementById('appTitle').innerText = currentGameName;
+            switchScreen('gameScreen'); renderGrid();
+        }
+
+        function loadGame(saveName) {
+            playHapticClick();
+            if (savesDatabase[saveName]) {
+                currentGameName = saveName; appState = savesDatabase[saveName];
+                
+                appState.players.forEach(p => { if(!p.history) p.history = []; });
+                runtimeState = {}; appState.players.forEach(p => runtimeState[p.id] = { pending: 0, timer: null });
+
+                document.getElementById('custom1Toggle').checked = appState.custom1.active;
+                document.getElementById('custom1ValueInput').value = appState.custom1.value;
+                document.getElementById('custom2Toggle').checked = appState.custom2.active;
+                document.getElementById('custom2ValueInput').value = appState.custom2.value;
+                
+                document.getElementById('appTitle').innerText = currentGameName;
+                switchScreen('gameScreen'); renderGrid();
+            }
+        }
+
+        function deleteSave(saveName) {
+            playHapticClick();
+            if(confirm(`"${saveName}" silinecek. Emin misiniz?`)) {
+                delete savesDatabase[saveName]; localStorage.setItem('score_tracker_saves_v7', JSON.stringify(savesDatabase));
+                renderSavesList();
+            }
+        }
+        
+        function goToMenu() { switchScreen('startScreen'); loadDatabase(); }
+        function switchScreen(screenId) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(screenId).classList.add('active'); }
+
+        // --- GRID VE SKOR ---
+        function renderGrid() {
+            const grid = document.getElementById('playerGrid');
+            grid.className = `player-grid players-${appState.playerCount}`;
+            if (appState.playerCount >= 5) grid.classList.add('dense-layout'); else grid.classList.remove('dense-layout');
+            grid.innerHTML = '';
+            
+            const activePlayers = appState.players.slice(0, appState.playerCount);
+            activePlayers.forEach(player => {
+                if(!player.history) player.history = [];
+                if(!runtimeState[player.id]) runtimeState[player.id] = { pending: 0, timer: null };
+
+                const card = document.createElement('div');
+                card.className = 'player-card'; card.id = `player-card-${player.id}`;
+                card.style.background = `linear-gradient(135deg, ${player.color} 0%, ${adjustColor(player.color, -40)} 100%)`;
+
+                const c1 = appState.custom1; const c2 = appState.custom2;
+                const negButtons=[10,5,1];
+                if(c1.active) negButtons.push(c1.value);
+                if(c2.active) negButtons.push(c2.value);
+                negButtons.sort((a,b)=>b-a);
+                let leftBtns='<div class="btn-column">';
+                negButtons.forEach(v=>{leftBtns+=`<button class="btn-score ${v===1||v===5||v===10?'btn-minus':'btn-custom'}" onclick="queueScore(event, ${player.id}, -${v})">-${v}</button>`});
+                leftBtns+='</div>';
+
+                // ORTA BÖLÜM (İsim, Skor, Bekleyen İşlem Kutusu)
+                let centerHtml = `
+                    <div class="score-center" id="score-center-${player.id}">
+                        <div class="name-row">
+                            <input type="text" class="player-name-input" value="${player.name}" onchange="changePlayerName(${player.id}, this.value)" onclick="this.select()">
+                            <button class="color-picker-btn" onclick="openColorModal(${player.id})" title="Renk Değiştir">🎨</button>
+                        </div>
+                        
+                        <div class="score-wrapper">
+                            <div class="score-val" id="score-val-${player.id}" onclick="openManualModal(${player.id}); playHapticClick()">${player.score}</div>
+                            
+                            <div class="pending-box" id="pending-box-${player.id}" style="display: none;">
+                                <span id="pending-val-${player.id}" class="pending-val">0</span>
+                                <button class="pending-cancel" onclick="cancelPending(event, ${player.id})">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // SAĞ BUTONLAR
+                const posButtons=[1,5,10];
+                if(c1.active) posButtons.push(c1.value);
+                if(c2.active) posButtons.push(c2.value);
+                posButtons.sort((a,b)=>a-b);
+                let rightBtns='<div class="btn-column">';
+                posButtons.forEach(v=>{rightBtns+=`<button class="btn-score ${v===1||v===5||v===10?'btn-plus':'btn-custom'}" onclick="queueScore(event, ${player.id}, ${v})">+${v}</button>`});
+                rightBtns+='</div>';
+
+                // GEÇMİŞ PANELİ (En Sağda)
+                let historyHtml = `
+                    <div class="history-panel">
+                        <button class="btn-undo" onclick="undoLast(event, ${player.id})" title="Geri Al">↩️</button>
+                        <div class="history-list" id="history-list-${player.id}">
+                            ${player.history.slice().reverse().map(h => `<div class="history-item ${h.change > 0 ? 'pos' : 'neg'}">${h.change > 0 ? '+'+h.change : h.change}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+
+                // DİZİLİŞ: Sol Butonlar -> Skor -> Sağ Butonlar -> Geçmiş
+                card.innerHTML = leftBtns + centerHtml + rightBtns + historyHtml;
+                grid.appendChild(card);
+                
+                updatePendingUI(player.id);
+            });
+        }
+
+        function adjustColor(color, amount) {
+            return '#' + color.replace(/^#/, '').replace(/../g, color => ('0'+Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2));
+        }
+
+        function queueScore(event, playerId, amount) {
+            if(event) event.stopPropagation();
+            playHapticClick(); 
+            
+            if (!runtimeState[playerId]) runtimeState[playerId] = { pending: 0, timer: null };
+            runtimeState[playerId].pending += amount;
+            
+            if (runtimeState[playerId].pending === 0) { cancelPending(null, playerId); return; }
+            if (runtimeState[playerId].timer) clearTimeout(runtimeState[playerId].timer);
+            
+            updatePendingUI(playerId);
+            runtimeState[playerId].timer = setTimeout(() => { commitPending(playerId); }, 1500); 
+        }
+
+        function updatePendingUI(playerId) {
+            let pState = runtimeState[playerId];
+            let box = document.getElementById(`pending-box-${playerId}`);
+            let val = document.getElementById(`pending-val-${playerId}`);
+            
+            if (!pState || pState.pending === 0) {
+                if (box) box.style.display = 'none';
+            } else {
+                if (box) {
+                    box.style.display = 'inline-flex';
+                    val.innerText = pState.pending > 0 ? `+${pState.pending}` : `${pState.pending}`;
+                    box.className = pState.pending > 0 ? 'pending-box pos' : 'pending-box neg';
+                    box.style.animation = 'none'; box.offsetHeight; box.style.animation = null; 
+                }
+            }
+        }
+
+        function commitPending(playerId) {
+            if (!runtimeState[playerId] || runtimeState[playerId].pending === 0) return;
+            
+            let amount = runtimeState[playerId].pending;
+            runtimeState[playerId].pending = 0; runtimeState[playerId].timer = null;
+            
+            let p = appState.players.find(x => x.id === playerId);
+            if (!p) return;
+            
+            p.score += amount;
+            p.history.push({ change: amount });
+            if (p.history.length > 10) p.history.shift(); 
+            
+            saveGameToDatabase();
+            
+            let scoreEl = document.getElementById(`score-val-${playerId}`);
+            if(scoreEl) scoreEl.innerText = p.score;
+            
+            updatePendingUI(playerId); updateHistoryUI(playerId); playScoreSound(amount > 0);
+            
+            const wrapperDiv = document.querySelector(`#score-center-${playerId} .score-wrapper`);
+            if(wrapperDiv) {
+                const floatEl = document.createElement('div');
+                floatEl.className = 'floating-text';
+                floatEl.style.color = amount > 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                floatEl.innerText = amount > 0 ? `+${amount}` : `${amount}`;
+                wrapperDiv.appendChild(floatEl);
+                setTimeout(() => floatEl.remove(), 800);
+            }
+        }
+
+        function cancelPending(event, playerId) {
+            if(event) event.stopPropagation();
+            if (runtimeState[playerId] && runtimeState[playerId].timer) clearTimeout(runtimeState[playerId].timer);
+            runtimeState[playerId].pending = 0; updatePendingUI(playerId); playHapticClick();
+        }
+
+        function undoLast(event, playerId) {
+            if(event) event.stopPropagation();
+            if (runtimeState[playerId] && runtimeState[playerId].pending !== 0) { cancelPending(null, playerId); return; }
+            let p = appState.players.find(x => x.id === playerId);
+            if (!p || !p.history || p.history.length === 0) return;
+            
+            let lastAction = p.history.pop(); p.score -= lastAction.change; saveGameToDatabase();
+            
+            let scoreEl = document.getElementById(`score-val-${playerId}`);
+            if(scoreEl) scoreEl.innerText = p.score;
+            updateHistoryUI(playerId); playHapticClick();
+        }
+
+        function updateHistoryUI(playerId) {
+            let p = appState.players.find(x => x.id === playerId);
+            let historyList = document.getElementById(`history-list-${playerId}`);
+            if(historyList && p) {
+                historyList.innerHTML = '';
+                let reversed = [...p.history].reverse();
+                reversed.forEach(h => {
+                    let div = document.createElement('div');
+                    div.className = h.change > 0 ? 'history-item pos' : 'history-item neg';
+                    div.innerText = h.change > 0 ? `+${h.change}` : `${h.change}`;
+                    historyList.appendChild(div);
+                });
+            }
+        }
+
+        function changePlayerName(playerId, newName) {
+            const p = appState.players.find(p => p.id === playerId);
+            if (p) { p.name = newName.trim() || `Oyuncu ${playerId}`; saveGameToDatabase(); }
+        }
+
+        function confirmResetAll() {
+            if (confirm("Tüm skorları sıfırlamak istiyor musunuz? Geçmiş işlemler de silinecektir.")) {
+                appState.players.forEach(p => { cancelPending(null, p.id); p.score = appState.startingScore; p.history = []; });
+                saveGameToDatabase(); renderGrid();
+            }
+        }
+
+        function initColorPalette() {
+            const container = document.getElementById('colorPalette'); container.innerHTML = '';
+            PALETTE.forEach(color => {
+                const btn = document.createElement('div'); btn.className = 'color-swatch'; btn.style.backgroundColor = color;
+                btn.dataset.color = color; btn.onclick = () => selectColor(color, btn); container.appendChild(btn);
+            });
+        }
+        function openColorModal(playerId) {
+            playHapticClick(); activeColorPlayerId = playerId;
+            const usedColors = appState.players.filter(p => p.id !== activeColorPlayerId).map(p => p.color);
+            document.querySelectorAll('.color-swatch').forEach(sw => { if(usedColors.includes(sw.dataset.color)) sw.classList.add('disabled'); else sw.classList.remove('disabled'); });
+            document.getElementById('colorModal').classList.add('active');
+        }
+        function closeColorModal() { document.getElementById('colorModal').classList.remove('active'); }
+        function selectColor(colorHex, btnElement) {
+            if(btnElement.classList.contains('disabled')) { if (navigator.vibrate) navigator.vibrate([10, 20, 10]); return; }
+            playHapticClick(); const p = appState.players.find(p => p.id === activeColorPlayerId);
+            if (p) { p.color = colorHex; saveGameToDatabase(); const card = document.getElementById(`player-card-${p.id}`); if(card) card.style.background = `linear-gradient(135deg, ${p.color} 0%, ${adjustColor(p.color, -40)} 100%)`; }
+            closeColorModal();
+        }
+
+        function openSettingsModal() { document.getElementById('settingsModal').classList.add('active'); }
+        function closeSettingsModal() { document.getElementById('settingsModal').classList.remove('active'); }
+        function saveSettings() {
+            appState.custom1 = { active: document.getElementById('custom1Toggle').checked, value: parseInt(document.getElementById('custom1ValueInput').value) || 20 };
+            appState.custom2 = { active: document.getElementById('custom2Toggle').checked, value: parseInt(document.getElementById('custom2ValueInput').value) || 50 };
+            saveGameToDatabase(); renderGrid(); closeSettingsModal();
+        }
+
+        function openManualModal(playerId) {
+            activeManualPlayerId = playerId; const p = appState.players.find(p => p.id === playerId);
+            document.getElementById('manualModalTitle').innerText = `${p.name} İçin Değer`; manualInputBuffer = "0";
+            document.getElementById('manualValueDisplay').innerText = manualInputBuffer; document.getElementById('manualModal').classList.add('active');
+        }
+        function closeManualModal() { document.getElementById('manualModal').classList.remove('active'); }
+        function pressKey(key) {
+            if (key === 'C') manualInputBuffer = "0";
+            else if (key === '⌫') { manualInputBuffer = manualInputBuffer.slice(0, -1); if (!manualInputBuffer) manualInputBuffer = "0"; }
+            else { if (manualInputBuffer === "0") manualInputBuffer = key; else if (manualInputBuffer.length < 5) manualInputBuffer += key; }
+            document.getElementById('manualValueDisplay').innerText = manualInputBuffer;
+        }
+        function submitManual(isPositive) {
+            const val = parseInt(manualInputBuffer);
+            if (!isNaN(val) && val !== 0) queueScore(null, activeManualPlayerId, isPositive ? val : -val);
+            closeManualModal();
+        }
+    </script>
+</body>
+</html>
